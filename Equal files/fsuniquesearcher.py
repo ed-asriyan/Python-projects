@@ -31,6 +31,22 @@ class InvalidTypeException(Exception):
 
 # --- Local members ------------------------------------------------
 
+def stream_compare(stream1, stream2):
+	BUFF_SIZE = 1024 * 4
+	result = True
+	while True:
+		buff1 = stream1.read(BUFF_SIZE)
+		buff2 = stream2.read(BUFF_SIZE)
+
+		if not buff1 or not buff2:
+			break
+
+		if buff1 != buff2:
+			result = False
+			break
+
+	return result
+
 def _md5_sum(fname):
 	hash_md5 = md5()
 	with open(fname, "rb") as f:
@@ -44,6 +60,12 @@ def _sha256_sum(fname):
 		for chunk in iter(lambda: f.read(4096), b""):
 			fhash.update(chunk)
 	return fhash.hexdigest()
+
+def _safety_enumerate_forward(subscriptable, begin=0):
+	i = begin
+	while i < len(subscriptable):
+		yield i, subscriptable[i]
+		i += 1
 
 # --- Fs Classes ---------------------------------------------------
 
@@ -94,30 +116,13 @@ class FsFile(FsItem):
 	def __str__(self):
 		return FsItem.__str__(self)
 
-	def __eq__(self, obj):
-		# return obj.get_hash() == self.get_hash()
-
-		f1_stream, f2_stream = open(obj._path, 'rb'), open(self._path, 'rb')
-
-		BUFF_SIZE = 1024 * 4
-		result = True
-		while True:
-			buff1 = f1_stream.read(BUFF_SIZE)
-			buff2 = f2_stream.read(BUFF_SIZE)
-
-			if not buff1 or not buff2:
-				break
-
-			if buff1 != buff2:
-				result = False
-				break
-
-		f1_stream.close()
-		f2_stream.close()
-
-		return result
-
 # --- Public members -----------------------------------------
+
+def set_compare_method(by_hash=0):
+	if by_hash:
+		FsFile.__eq__ = lambda self, obj: obj.get_hash() == self.get_hash()
+	else:
+		FsFile.__eq__ = lambda self, obj: stream_compare(open(obj.get_path(), "rb"), open(self.get_path(), "rb"))
 
 def get_fs_items(dir_path, deep=-1):
 	dir_path = str(dir_path)
@@ -144,7 +149,7 @@ class FsUniqueItemsMap:
 		self._files = files_list
 		self._group_list = None
 
-	def get_file_groups(self):
+	def get_file_groups_by_lists(self):
 		if self._group_list is None: # really i dont like big 'if' blocks
 			size_map = { }
 			for i, item in enumerate(self._files):
@@ -167,12 +172,12 @@ class FsUniqueItemsMap:
 			self._group_list = [ ]
 			for i, (i_size, items) in enumerate(size_map.items()):
 				if len(items) > 1:
-					for j, item1 in enumerate(items):
+					for j, item1 in _safety_enumerate_forward(items):
 						_items = [ item1 ]
-						for k, item2 in enumerate(items[j + 1:]):
+						for k, item2 in _safety_enumerate_forward(items, j + 1):
 							if item1 == item2:
 								_items.append(item2)
-								del items[j + k + 1]
+								del items[k]
 
 						if len(_items) > 1:
 							self._group_list.append(_items)
@@ -183,43 +188,43 @@ class FsUniqueItemsMap:
 
 		return self._group_list
 
-	# def get_file_groups(self):
-	# 	if self._group_list is None: # really i dont like big 'if' blocks
-	# 		size_map = { }
-	# 		for i, item in enumerate(self._files):
-	# 			if isinstance(item, str):
-	# 				item = FsFile(item)
+	def get_file_groups_by_map(self):
+		if self._group_list is None: # really i dont like big 'if' blocks
+			size_map = { }
+			for i, item in enumerate(self._files):
+				if isinstance(item, str):
+					item = FsFile(item)
 
-	# 			if not isinstance(item, FsFile):
-	# 				raise InvalidTypeException(type(item), FsFile)
+				if not isinstance(item, FsFile):
+					raise InvalidTypeException(type(item), FsFile)
 
-	# 			f_size = item.get_size()
-	# 			if f_size in size_map:
-	# 				size_map[f_size].append(item)
-	# 			else:
-	# 				size_map[f_size] = [ item ]
+				f_size = item.get_size()
+				if f_size in size_map:
+					size_map[f_size].append(item)
+				else:
+					size_map[f_size] = [ item ]
 
-	# 			stdout.write("{:} of {:} processed...\r".format(i, len(self._files)))
-	# 			stdout.flush()
-	# 		stdout.write('\n')
+				stdout.write("{:} of {:} processed...\r".format(i, len(self._files)))
+				stdout.flush()
+			stdout.write('\n')
 
-	# 		hash_map = { } # not full map
-	# 		for i, (i_size, items) in enumerate(size_map.items()):
-	# 			if len(items) > 1:
-	# 				for item in items:
-	# 					_hash = item.get_hash()
-	# 					if _hash in hash_map:
-	# 						hash_map[_hash].append(item)
-	# 					else:
-	# 						hash_map[_hash] = [ item ]
+			hash_map = { } # not full map
+			for i, (i_size, items) in enumerate(size_map.items()):
+				if len(items) > 1:
+					for item in items:
+						_hash = item.get_hash()
+						if _hash in hash_map:
+							hash_map[_hash].append(item)
+						else:
+							hash_map[_hash] = [ item ]
 
-	# 			stdout.write("{:} of {:} hash calculated...\r".format(i, len(size_map)))
-	# 			stdout.flush()
-	# 		stdout.write('\n')
+				stdout.write("{:} of {:} hash calculated...\r".format(i, len(size_map)))
+				stdout.flush()
+			stdout.write('\n')
 
-	# 		self._group_list = [ ]
-	# 		for i_hash, items in hash_map.items():
-	# 			if len(items) > 1:
-	# 				self._group_list.append(items)
+			self._group_list = [ ]
+			for i_hash, items in hash_map.items():
+				if len(items) > 1:
+					self._group_list.append(items)
 
-	# 	return self._group_list
+		return self._group_list
