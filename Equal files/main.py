@@ -70,7 +70,7 @@ if __name__ == '__main__':
 	map_ = fsuniquesearcher.FsUniqueItemsMap(files)
 
 	start_time = default_timer()
-	files_groups = map_.get_file_groups_by_lists()
+	files_groups = map_.get_file_groups_by_map()
 	work_time =  default_timer() - start_time
 
 
