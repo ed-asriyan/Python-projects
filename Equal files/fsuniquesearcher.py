@@ -55,7 +55,7 @@ class FsItem:
 		return self._path
 
 	def get_name(self):
-		head, tail = split(self.get_path())
+		head, tail = os.path.split(self.get_path())
 		return tail
 
 	def get_mtime(self):
@@ -164,24 +164,22 @@ class FsUniqueItemsMap:
 				stdout.flush()
 			stdout.write('\n')
 
-			hash_map = { } # not full map
+			self._group_list = [ ]
 			for i, (i_size, items) in enumerate(size_map.items()):
 				if len(items) > 1:
-					for item in items:
-						_hash = item.get_hash()
-						if _hash in hash_map:
-							hash_map[_hash].append(item)
-						else:
-							hash_map[_hash] = [ item ]
+					for j, item1 in enumerate(items):
+						_items = [ item1 ]
+						for k, item2 in enumerate(items[j + 1:]):
+							if item1 == item2:
+								_items.append(item2)
+								del items[j + k + 1]
 
-				stdout.write("{:} of {:} hash calculated...\r".format(i, len(size_map)))
-				stdout.flush()
-			stdout.write('\n')
+						if len(_items) > 1:
+							self._group_list.append(_items)
 
-			self._group_list = [ ]
-			for i_hash, items in hash_map.items():
-				if len(items) > 1:
-					self._group_list.append(items)
+
+					stdout.write("{:} of {:} compared...\r".format(i, len(size_map)))
+					stdout.flush()
 
 		return self._group_list
 
@@ -201,21 +199,27 @@ class FsUniqueItemsMap:
 	# 			else:
 	# 				size_map[f_size] = [ item ]
 
-	# 		# 	stdout.write("{:} of {:} processed...\r".format(i, len(self._files)))
-	# 		# 	stdout.flush()
-	# 		# stdout.write('\n')
+	# 			stdout.write("{:} of {:} processed...\r".format(i, len(self._files)))
+	# 			stdout.flush()
+	# 		stdout.write('\n')
 
-	# 		self._group_list = [ ]
+	# 		hash_map = { } # not full map
 	# 		for i, (i_size, items) in enumerate(size_map.items()):
 	# 			if len(items) > 1:
-	# 				for j, item1 in enumerate(items[:-1]):
-	# 					_items = [ ]
-	# 					for k, it in enumerate(items[j + 1:]):
-	# 						if it == item1:
-	# 							_items.append(it)
-	# 							del items[j + 1:][k]
+	# 				for item in items:
+	# 					_hash = item.get_hash()
+	# 					if _hash in hash_map:
+	# 						hash_map[_hash].append(item)
+	# 					else:
+	# 						hash_map[_hash] = [ item ]
 
-	# 				# stdout.write("{:} of {:} compared...\r".format(i, len(size_map)))
-	# 				# stdout.flush()
+	# 			stdout.write("{:} of {:} hash calculated...\r".format(i, len(size_map)))
+	# 			stdout.flush()
+	# 		stdout.write('\n')
+
+	# 		self._group_list = [ ]
+	# 		for i_hash, items in hash_map.items():
+	# 			if len(items) > 1:
+	# 				self._group_list.append(items)
 
 	# 	return self._group_list
