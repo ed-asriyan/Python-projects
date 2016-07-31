@@ -3,6 +3,7 @@
 import os
 import time
 from hashlib import md5, sha256
+from io import DEFAULT_BUFFER_SIZE
 from sys import stdout
 
 # --- Exeption classes ---------------------------------------------
@@ -32,11 +33,10 @@ class InvalidTypeException(Exception):
 # --- Local members ------------------------------------------------
 
 def stream_compare(stream1, stream2):
-	BUFF_SIZE = 1024 * 4
 	result = True
 	while True:
-		buff1 = stream1.read(BUFF_SIZE)
-		buff2 = stream2.read(BUFF_SIZE)
+		buff1 = stream1.read(DEFAULT_BUFFER_SIZE)
+		buff2 = stream2.read(DEFAULT_BUFFER_SIZE)
 
 		if not buff1 or not buff2:
 			break
@@ -120,9 +120,9 @@ class FsFile(FsItem):
 
 def set_compare_method(mode):
 	if mode == "hash":
-		FsFile.__eq__ = lambda self, obj: obj.get_hash() == self.get_hash()
+		FsFile.__eq__ = lambda self, obj: obj.get_size() == self.get_size() and obj.get_hash() == self.get_hash()
 	else:
-		FsFile.__eq__ = lambda self, obj: stream_compare(open(obj.get_path(), "rb"), open(self.get_path(), "rb"))
+		FsFile.__eq__ = lambda self, obj: obj.get_size() == self.get_size() and stream_compare(open(obj.get_path(), "rb"), open(self.get_path(), "rb"))
 
 def get_fs_items(dir_path, deep=-1):
 	dir_path = str(dir_path)
@@ -173,35 +173,38 @@ class FsUniqueItemsMap:
 		return self._size_map
 
 	def get_file_groups_by_lists(self):
-		if self._group_list is None: # really i dont like big 'if' blocks
-			size_map = self.get_size_map()
+		if self._group_list is None:
+			self._group_list = [ ]
+
+			size_map = self.get_size_map().items()
+			for group_index, (size, files) in enumerate(size_map):
+				i = 0
+				while i < len(files):
+					item1 = files[i]
+					files_group = [ ]
+
+					j = i + 1
+					while j < len(files):
+						item2 = files[j]
+
+						if item1 == item2:
+							files_group.append(item2)
+							del files[j]
+						else:
+							j += 1
+
+					if files_group:
+						files_group.append(item1)
+						self._group_list.append(files_group)
+
+					i += 1
+
+				if not group_index % 100:
+					stdout.write("{:} of {:} compared...\r".format(group_index, len(size_map)))
+					stdout.flush()
+
 			stdout.write('\n')
 
-			self._group_list = [ ]
-			for i, (i_size, items) in enumerate(size_map.items()):
-				if len(items) > 1:
-					j = 0
-					while j < len(items):
-						item1 = items[j]
-
-						_items = [ item1 ]
-						k = j + 1
-						while k < len(items):
-							item2 = items[k]
-							if item2 == item1:
-								_items.append(item2)
-								del items[k]
-							else:
-								k += 1
-
-						j += 1
-
-						if len(_items) > 1:
-							self._group_list.append(_items)
-
-
-					stdout.write("{:} of {:} compared...\r".format(i, len(size_map)))
-					stdout.flush()
 
 		return self._group_list
 
@@ -219,8 +222,9 @@ class FsUniqueItemsMap:
 						else:
 							hash_map[_hash] = [ item ]
 
-				stdout.write("{:} of {:} hash calculated...\r".format(i, len(size_map)))
-				stdout.flush()
+				if not i % 100:
+					stdout.write("{:} of {:} hash calculated...\r".format(i, len(size_map)))
+					stdout.flush()
 			stdout.write('\n')
 
 			self._group_list = [ ]

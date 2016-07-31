@@ -21,16 +21,16 @@ def compare_by_hash_map(files):
 	return files_groups
 
 def compare_by_hash_lists(files):
-	map_ = fsuniquesearcher.FsUniqueItemsMap(files)
 	fsuniquesearcher.set_compare_method("hash")
+	map_ = fsuniquesearcher.FsUniqueItemsMap(files)
 
 	files_groups = map_.get_file_groups_by_lists()
 
 	return files_groups
 
 def compare_by_bytes_lists(files):
-	map_ = fsuniquesearcher.FsUniqueItemsMap(files)
 	fsuniquesearcher.set_compare_method("bytes")
+	map_ = fsuniquesearcher.FsUniqueItemsMap(files)
 
 	files_groups = map_.get_file_groups_by_lists()
 
@@ -75,8 +75,8 @@ class CompareMethod:
 
 def get_compare_methods():
 	return (
-		   		CompareMethod("Hash lists", compare_by_hash_lists),
 				CompareMethod("Hash map" , compare_by_hash_map),
+		   		CompareMethod("Hash lists", compare_by_hash_lists),
 		   		CompareMethod("Bytes lists", compare_by_bytes_lists),
 		   )
 
