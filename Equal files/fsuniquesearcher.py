@@ -118,8 +118,8 @@ class FsFile(FsItem):
 
 # --- Public members -----------------------------------------
 
-def set_compare_method(by_hash=0):
-	if by_hash:
+def set_compare_method(mode):
+	if mode == "hash":
 		FsFile.__eq__ = lambda self, obj: obj.get_hash() == self.get_hash()
 	else:
 		FsFile.__eq__ = lambda self, obj: stream_compare(open(obj.get_path(), "rb"), open(self.get_path(), "rb"))
@@ -147,11 +147,12 @@ def get_fs_items(dir_path, deep=-1):
 class FsUniqueItemsMap:
 	def __init__(self, files_list):
 		self._files = files_list
+		self._size_map = None
 		self._group_list = None
 
-	def get_file_groups_by_lists(self):
-		if self._group_list is None: # really i dont like big 'if' blocks
-			size_map = { }
+	def get_size_map(self):
+		if self._size_map is None:
+			self._size_map = { }
 			for i, item in enumerate(self._files):
 				if isinstance(item, str):
 					item = FsFile(item)
@@ -160,24 +161,40 @@ class FsUniqueItemsMap:
 					raise InvalidTypeException(type(item), FsFile)
 
 				f_size = item.get_size()
-				if f_size in size_map:
-					size_map[f_size].append(item)
+				if f_size in self._size_map:
+					self._size_map[f_size].append(item)
 				else:
-					size_map[f_size] = [ item ]
+					self._size_map[f_size] = [ item ]
 
 				stdout.write("{:} of {:} processed...\r".format(i, len(self._files)))
 				stdout.flush()
+			stdout.write('\n') 
+
+		return self._size_map
+
+	def get_file_groups_by_lists(self):
+		if self._group_list is None: # really i dont like big 'if' blocks
+			size_map = self.get_size_map()
 			stdout.write('\n')
 
 			self._group_list = [ ]
 			for i, (i_size, items) in enumerate(size_map.items()):
 				if len(items) > 1:
-					for j, item1 in _safety_enumerate_forward(items):
+					j = 0
+					while j < len(items):
+						item1 = items[j]
+
 						_items = [ item1 ]
-						for k, item2 in _safety_enumerate_forward(items, j + 1):
-							if item1 == item2:
+						k = j + 1
+						while k < len(items):
+							item2 = items[k]
+							if item2 == item1:
 								_items.append(item2)
 								del items[k]
+							else:
+								k += 1
+
+						j += 1
 
 						if len(_items) > 1:
 							self._group_list.append(_items)
@@ -189,26 +206,10 @@ class FsUniqueItemsMap:
 		return self._group_list
 
 	def get_file_groups_by_map(self):
-		if self._group_list is None: # really i dont like big 'if' blocks
-			size_map = { }
-			for i, item in enumerate(self._files):
-				if isinstance(item, str):
-					item = FsFile(item)
+		if self._group_list is None:
+			size_map = self.get_size_map()
 
-				if not isinstance(item, FsFile):
-					raise InvalidTypeException(type(item), FsFile)
-
-				f_size = item.get_size()
-				if f_size in size_map:
-					size_map[f_size].append(item)
-				else:
-					size_map[f_size] = [ item ]
-
-				stdout.write("{:} of {:} processed...\r".format(i, len(self._files)))
-				stdout.flush()
-			stdout.write('\n')
-
-			hash_map = { } # not full map
+			hash_map = { }
 			for i, (i_size, items) in enumerate(size_map.items()):
 				if len(items) > 1:
 					for item in items:

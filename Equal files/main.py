@@ -52,7 +52,7 @@ def get_file_info_row(file=None):
 	return [ name, size_to_str(file.get_size()), str(time.ctime(file.get_mtime())) ]
 
 if __name__ == '__main__':
-	fsuniquesearcher.set_compare_method(0)
+	fsuniquesearcher.set_compare_method("bytes")
 
 	if len(argv) < 2:
 		print("Usage: python main.py [directiories...]")
@@ -70,7 +70,7 @@ if __name__ == '__main__':
 	map_ = fsuniquesearcher.FsUniqueItemsMap(files)
 
 	start_time = default_timer()
-	files_groups = map_.get_file_groups_by_map()
+	files_groups = map_.get_file_groups_by_lists()
 	work_time =  default_timer() - start_time
 
 

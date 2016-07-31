@@ -22,7 +22,7 @@ def compare_by_hash_map(files):
 
 def compare_by_hash_lists(files):
 	map_ = fsuniquesearcher.FsUniqueItemsMap(files)
-	fsuniquesearcher.set_compare_method(1)
+	fsuniquesearcher.set_compare_method("hash")
 
 	files_groups = map_.get_file_groups_by_lists()
 
@@ -30,7 +30,7 @@ def compare_by_hash_lists(files):
 
 def compare_by_bytes_lists(files):
 	map_ = fsuniquesearcher.FsUniqueItemsMap(files)
-	fsuniquesearcher.set_compare_method(0)
+	fsuniquesearcher.set_compare_method("bytes")
 
 	files_groups = map_.get_file_groups_by_lists()
 
@@ -74,11 +74,11 @@ class CompareMethod:
 
 
 def get_compare_methods():
-	return [
-				CompareMethod("Hash map" , compare_by_hash_map),
+	return (
 		   		CompareMethod("Hash lists", compare_by_hash_lists),
-		   		CompareMethod("Bytes lists", compare_by_bytes_lists)
-		   	]
+				CompareMethod("Hash map" , compare_by_hash_map),
+		   		CompareMethod("Bytes lists", compare_by_bytes_lists),
+		   )
 
 # --- UI -----------------------------------------------------------
 
@@ -123,8 +123,9 @@ if __name__ == "__main__":
 	methods = get_compare_methods()
 	methods_result = [ ]
 	for method in methods:
-		print("Comparing by ", method, "...", end="")
+		print("Comparing by ", method, "...", sep="")
 		methods_result.append(method.run(files))
+		print("\nDone.\n")
 
 	grid_time_body = get_table(methods_result)
 	grid_time_body.sort(key=lambda x: x[1])
